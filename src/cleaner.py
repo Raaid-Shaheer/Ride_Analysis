@@ -1,14 +1,16 @@
 # cleaner.py — all cleaning logic, one function per concern
+from typing import Any
+
 import pandas as pd
 import logging
-from config import (MIN_PRICE, MAX_PRICE, MIN_DISTANCE, MAX_DISTANCE,
+from src.config import (MIN_PRICE, MAX_PRICE, MIN_DISTANCE, MAX_DISTANCE,
                     VEHICLE_MAP, TIME_PERIODS, PLATFORM_NAMES)
+from numpy import dtype, integer, ndarray
 
 logger = logging.getLogger(__name__)
 
-
 def fix_price_column(series: pd.Series) -> pd.Series:
-    """Convert any price column to clean float."""
+    series = pd.Series(series)   #  normalise input
     return pd.to_numeric(
         series.astype(str).str.replace(',', '').str.strip(),
         errors='coerce'
@@ -26,16 +28,17 @@ def get_time_period(hour: int) -> str:
 def parse_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """Build datetime features from date + capture_time."""
     df['datetime'] = pd.to_datetime(
-        df['Date'] + ' ' + df['capture_time'],
+        df['capture_date'] + ' ' + df['capture_time'],
         format='%Y-%m-%d %H:%M:%S'
     )
-    df['hour']        = df['datetime'].dt.hour        # ← property, no ()
-    df['day_of_week'] = df['datetime'].dt.dayofweek   # ← 0=Mon, 6=Sun
-    df['day_name']    = df['datetime'].dt.day_name()  # ← method, needs ()
-    df['is_weekend']  = df['day_of_week'].isin([5, 6])# ← 5=Sat, 6=Sun
+    df['hour']        = df['datetime'].dt.hour
+    df['day_of_week'] = df['datetime'].dt.dayofweek
+    df['day_name']    = df['datetime'].dt.day_name()
+    df['is_weekend']  = df['day_of_week'].isin([5, 6])
     df['time_period'] = df['hour'].apply(get_time_period)
 
-    df.drop(columns=['Date', 'Time'], inplace=True)
+    df.drop(columns=['Date', 'Time', 'capture_date', 'capture_time'],  # ← typo fixed
+            inplace=True)
     return df
 
 
@@ -60,9 +63,8 @@ def flag_and_clean_discounts(df: pd.DataFrame) -> pd.DataFrame:
         df[savings_col] = (df[dis_col] - df[price_col]).clip(lower=0).fillna(0)
         df.drop(columns=[dis_col], inplace=True)
 
-    # Clean any remaining Uber price cols that are still strings
     surge_cols = [c for c in df.columns if 'Surge' in c or 'surge' in c]
-    df.drop(columns=surge_cols, inplace=True)   # surge cols are text flags only
+    df.drop(columns=surge_cols, inplace=True)
 
     return df
 
@@ -95,10 +97,9 @@ def reshape_to_long(df: pd.DataFrame) -> pd.DataFrame:
     base_cols = [
         'Distance(KM)', 'Pickup Location', 'Drop Location',
         'datetime', 'hour', 'day_of_week', 'day_name',
-        'is_weekend', 'time_period', 'route_group', 'capture_time'
+        'is_weekend', 'time_period', 'route_group'
     ]
-    # Only keep base_cols that actually exist (defensive)
-    base_cols = [c for c in base_cols if c in df.columns]
+    base_cols = [c for c in base_cols if c in df.columns]  # defensive filter
 
     long_frames = []
 
@@ -112,8 +113,8 @@ def reshape_to_long(df: pd.DataFrame) -> pd.DataFrame:
                 continue
 
             temp = df[base_cols].copy()
-            temp['platform']      = PLATFORM_NAMES[platform]  # ← dict lookup
-            temp['vehicle_class'] = vehicle_class              # ← string directly
+            temp['platform']      = PLATFORM_NAMES[platform]
+            temp['vehicle_class'] = vehicle_class
             temp['price']         = df[price_col]
             temp['is_discounted'] = df.get(discounted_col, False)
             temp['discount_amt']  = df.get(savings_col, 0)

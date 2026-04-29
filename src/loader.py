@@ -2,25 +2,80 @@
 import pandas as pd
 import logging
 from pathlib import Path
-from config import RAW_DIR
+from src.config import RAW_DIR,PROCESSED_DIR
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+PROCESSED_LOG = PROCESSED_DIR / ".processed_log"
+
+
+def get_processed_files() -> set:
+    """
+    Read the log of already-processed filenames.
+    Returns a set of filenames (not full paths) that are already done.
+    """
+    if not PROCESSED_LOG.exists():
+        return set()
+
+    return set(PROCESSED_LOG.read_text().splitlines())
+
+
+def mark_files_as_processed(filepaths: list[Path]) -> None:
+    """
+    Append newly processed filenames to the log.
+    Uses append mode so we never overwrite the history.
+    """
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+
+    with open(PROCESSED_LOG, 'a') as f:
+        for filepath in filepaths:
+            f.write(filepath.name + '\n')
+
+
+def load_all_files(raw_dir: Path = RAW_DIR) -> pd.DataFrame:
+    """
+    Load only NEW unprocessed CSVs from raw_dir.
+    Skips any file already recorded in the processed log.
+    """
+    all_files = sorted(raw_dir.glob("*.csv"))
+    processed_names = get_processed_files()
+
+    # Filter to only new files
+    new_files = [f for f in all_files if f.name not in processed_names]
+
+    if not new_files:
+        logger.info("No new files to process — pipeline is up to date")
+        return pd.DataFrame()  # empty dataframe
+
+    logger.info(f"Found {len(new_files)} new files to process")
+
+    dataframes = []
+    loaded_files = []
+
+    for filepath in new_files:
+        df = load_single_file(filepath)
+        if df is not None:
+            dataframes.append(df)
+            loaded_files.append(filepath)  # track only successfully loaded ones
+
+    if not dataframes:
+        raise FileNotFoundError(f"No valid new CSV files found in {raw_dir}")
+
+    # Mark as processed ONLY after successful load
+    mark_files_as_processed(loaded_files)
+
+    master = pd.concat(dataframes, ignore_index=True)
+    logger.info(f"Master dataframe: {len(master)} rows from {len(dataframes)} new files")
+    return master
 
 def extract_metadata_from_filename(filepath: Path) -> dict:
-    """
-    OutputUber_A_To_B_2026-04-27_00-00-00.csv
-    splits into:
-    ['OutputUber', 'A', 'To', 'B', '2026-04-27', '00-00-00']
-         [0]       [1]  [2]  [3]       [4]            [5]
-    """
     stem  = filepath.stem
     parts = stem.split("_")
 
-    route_group  = f"{parts[1]}_To_{parts[3]}"   # "A_To_B"
-    capture_date = parts[4]                        # "2026-04-27"
-    capture_time = parts[5].replace("-", ":")      # "00:00:00"
+    route_group = "_".join(parts[1:-2])
+    capture_date = parts[-2]
+    capture_time = parts[-1].replace("-", ":")
 
     return {
         "route_group":  route_group,
