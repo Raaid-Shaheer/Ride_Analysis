@@ -233,7 +233,7 @@ These findings directly informed dashboard design decisions and filter priority 
 
 ### Chart 1 — Average Price by Hour (per Vehicle Class)
 
-![Average Price by Hour — PickMe vs Uber](notebooks/exports/price_by_hour.png)
+![Average Price by Hour — PickMe vs Uber](screenshots/eda_01_hourly_price_fair.png)
 
 Four-panel line chart comparing PickMe and Uber average prices hour by hour for each shared vehicle class (Bike, Economy, Premium, Tuk). Shaded bands mark Morning Rush (07–09) and Evening Rush (16–19).
 
@@ -247,7 +247,7 @@ Four-panel line chart comparing PickMe and Uber average prices hour by hour for 
 
 ### Chart 2 — Price Difference Heatmap (Hour × Day of Week, per Vehicle Class)
 
-![When Is PickMe More Expensive Than Uber?](notebooks/exports/heatmap_by_class.png)
+![When Is PickMe More Expensive Than Uber?](screenshots/eda_02_price_diff_heatmap.png)
 
 Four heatmaps showing the LKR difference (PickMe minus Uber) per hour and day of week.
 - **Red** = PickMe more expensive → use Uber
@@ -264,7 +264,7 @@ Four heatmaps showing the LKR difference (PickMe minus Uber) per hour and day of
 
 ### Chart 3 — Price Spread Box Plot (Volatility by Time Period)
 
-![Price Consistency: How Volatile Are Prices by Time of Day?](notebooks/exports/boxplot_volatility.png)
+![Price Consistency: How Volatile Are Prices by Time of Day?](screenshots/eda_03_price_volatility.png)
 
 Side-by-side box plots comparing price spread for PickMe (green) and Uber (blue) across the six time periods.
 
@@ -278,7 +278,7 @@ Side-by-side box plots comparing price spread for PickMe (green) and Uber (blue)
 
 ### Chart 4 — Average Price by Distance (Platform Winner by Distance)
 
-![Average Price by Distance — Does the Winner Change?](notebooks/exports/price_by_distance.png)
+![Average Price by Distance — Does the Winner Change?](screenshots/eda_04_distance_price.png)
 
 Single line chart showing average price across all vehicle classes from 1 to 20 km.
 
@@ -359,20 +359,19 @@ pytest>=7.4.0
 
 ## 🗺️ Project Roadmap
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | Discovery & requirements | ✅ Complete |
-| 2 | Project setup (Python, Git, venv) | ✅ Complete |
-| 3 | Data audit & cleaning pipeline | ✅ Complete |
-| 4 | Exploratory data analysis | ✅ Complete |
-| 5 | Feature engineering & ML models | ✅ Complete |
-| 6 | Power BI dashboard | ⏳ In progress |
+| Phase | Description | Status                                                       |
+|-------|-------------|--------------------------------------------------------------|
+| 1 | Discovery & requirements | ✅ Complete                                                   |
+| 2 | Project setup (Python, Git, venv) | ✅ Complete                                                   |
+| 3 | Data audit & cleaning pipeline | ✅ Complete                                                   |
+| 4 | Exploratory data analysis | ✅ Complete (Need more data before giving proper Observation) |
+| 5 | Feature engineering & ML models | ✅ Complete                                                   |
+| 6 | Power BI dashboard | ⏳ In progress                                                |
 
 ---
 
 ## 📝 Notes
 
-- Excluded test routes: `test1`, `test2`, `test3`, `test4`, `test5`
 - Standard vehicle class is PickMe-only — excluded from all cross-platform comparisons
 - Parcel classes (`Parcel_Bike`, `Parcel_Tuk`) are excluded from all commuter-facing dashboard pages
 - The pipeline is designed for ongoing daily data ingestion — simply drop new CSVs into `data/raw/` and re-run `main.py`
