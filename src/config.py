@@ -1,8 +1,20 @@
 # config.py — all settings in one place, never hardcode paths elsewhere
+
+# ── Data schema version ──────────────────────────────────────────
+# v1 (old): Price = discounted, Dis = original  ← deleted, not supported
+# v2 (new): Price = original,   Dis = discounted or 0  ← current
+DATA_SCHEMA_VERSION = "v2"
+DATA_SCHEMA_FROM    = "2026-05-04"   # date new format started
+
+
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── Excluded route groups ────────────────────────────────────────
+EXCLUDED_ROUTES = {'test1', 'test2', 'test3', 'test4', 'test5'}
+
 
 # ── Paths ────────────────────────────────────────────────────────
 BASE_DIR      = Path(__file__).resolve().parent.parent
@@ -42,6 +54,11 @@ VEHICLE_MAP = {
     },
 }
 
+COLUMN_ALIASES = {
+    'uberConnect':    'uberParcel_Bike',
+    'uberConnectTuk': 'uberParcel_Tuk',
+}
+
 # ── Platform display names ───────────────────────────────────────
 PLATFORM_NAMES = {
     "pickme": "PickMe",
@@ -57,7 +74,14 @@ TIME_PERIODS = {
     "Evening Rush":  range(16, 20),  # 16:00–19:59  ← peak
     "Night":         range(20, 24),  # 20:00–23:59
 }
-
+TIME_PERIOD_ORDER = {
+        "Late Night": 1,
+        "Early Morning": 2,
+        "Morning Rush": 3,
+        "Midday": 4,
+        "Evening Rush": 5,
+        "Night": 6,
+    }
 # ── Data quality thresholds ──────────────────────────────────────
 MIN_PRICE    = 50      # LKR — below this is suspect
 MAX_PRICE    = 15000   # LKR — above this is suspect

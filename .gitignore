@@ -17,5 +17,6 @@ browser.json
 *.docx
 
 claude.md
-
+mistake_tracker.md
 data
+RideAnalysis.pbix

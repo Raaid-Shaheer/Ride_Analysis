@@ -1,0 +1,7 @@
+data/raw/
+data/processed/
+data/models/
+.env
+__pycache__/
+*.pyc
+claude.md

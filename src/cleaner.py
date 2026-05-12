@@ -1,10 +1,11 @@
 # cleaner.py — all cleaning logic, one function per concern
+
 from typing import Any
 
 import pandas as pd
 import logging
 from src.config import (MIN_PRICE, MAX_PRICE, MIN_DISTANCE, MAX_DISTANCE,
-                    VEHICLE_MAP, TIME_PERIODS, PLATFORM_NAMES)
+                    VEHICLE_MAP, TIME_PERIODS, PLATFORM_NAMES, TIME_PERIOD_ORDER)
 from numpy import dtype, integer, ndarray
 
 logger = logging.getLogger(__name__)
@@ -36,14 +37,32 @@ def parse_datetime(df: pd.DataFrame) -> pd.DataFrame:
     df['day_name']    = df['datetime'].dt.day_name()
     df['is_weekend']  = df['day_of_week'].isin([5, 6])
     df['time_period'] = df['hour'].apply(get_time_period)
+    df['day_type'] = df['is_weekend'].map({True: 'Weekend', False: 'Weekday'})
 
     df.drop(columns=['Date', 'Time', 'capture_date', 'capture_time'],  # ← typo fixed
             inplace=True)
+
+    # Sort order for time periods — used by Power BI for correct ordering
+    df['time_period_order'] = df['time_period'].map(TIME_PERIOD_ORDER)
+
     return df
 
 
 def flag_and_clean_discounts(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean price columns and extract discount flags and amounts."""
+    """
+    Clean price columns and extract discount flags and amounts.
+
+    Schema (both platforms, new unified definition):
+        Price = original price
+        Dis   = discounted price, or 0 if no discount
+
+    If Dis > 0  → customer pays Dis, saving = Price - Dis
+    If Dis = 0  → customer pays Price, no discount
+
+    After this function, Price column always contains what
+    the customer actually pays — downstream never needs to
+    think about discounts again.
+    """
     dis_cols = [c for c in df.columns
                 if c.endswith('Dis') and c != 'Distance(KM)']
 
@@ -59,14 +78,30 @@ def flag_and_clean_discounts(df: pd.DataFrame) -> pd.DataFrame:
         flag_col    = price_col.replace('Price', '_is_discounted')
         savings_col = price_col.replace('Price', '_discount_amt')
 
-        df[flag_col]    = df[dis_col].notna() & (df[dis_col] > df[price_col])
-        df[savings_col] = (df[dis_col] - df[price_col]).clip(lower=0).fillna(0)
+        # Discount exists when Dis > 0
+        has_discount = df[dis_col] > 0
+
+        df[flag_col]    = has_discount
+
+        # Saving = original - discounted, zero where no discount
+        df[savings_col] = (
+            (df[price_col] - df[dis_col])
+            .where(has_discount, 0)
+            .clip(lower=0)
+            .fillna(0)
+        )
+
+        # Overwrite price with what customer actually pays
+        df[price_col] = df[price_col].where(~has_discount, df[dis_col])
+
         df.drop(columns=[dis_col], inplace=True)
 
+    # Surge columns are text flags only — drop them
     surge_cols = [c for c in df.columns if 'Surge' in c or 'surge' in c]
     df.drop(columns=surge_cols, inplace=True)
 
     return df
+
 
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
@@ -97,10 +132,9 @@ def reshape_to_long(df: pd.DataFrame) -> pd.DataFrame:
     base_cols = [
         'Distance(KM)', 'Pickup Location', 'Drop Location',
         'datetime', 'hour', 'day_of_week', 'day_name',
-        'is_weekend', 'time_period', 'route_group'
+        'is_weekend','day_type','time_period','time_period_order', 'route_group'
     ]
     base_cols = [c for c in base_cols if c in df.columns]  # defensive filter
-
     long_frames = []
 
     for vehicle_class, platforms in VEHICLE_MAP.items():
